@@ -15,6 +15,7 @@ import:
   - pkg/api/resource
 - package: gopkg.in/inf.v0
 - package: gopkg.in/yaml.v2
+- package: github.com/hawkular/hawkular-client-go
 # Use local version in $GOPATH
 ignore:
 - github.com/fabric8-services/fabric8-wit/app

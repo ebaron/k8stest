@@ -25,6 +25,7 @@ import (
 type KubeClient struct {
 	config        *rest.Config
 	clientset     *kubernetes.Clientset
+	metrics       *metricsClient
 	userNamespace string // TODO Get from WIT API /user/services, can also get other namespaces if desired
 	envMap        map[string]string
 }
@@ -41,10 +42,19 @@ func NewKubeClient(clusterURL string, kubeToken string, userNamespace string) (*
 		return nil, err
 	}
 
+	// TODO generate by replacing "api" with "metrics" in user's cluster URL
+	// Don't think we can use OSO proxy anymore
+	metricsURL := "https://metrics.starter-us-east-2.openshift.com"
+	metrics, err := newMetricsClient(metricsURL, kubeToken)
+	if err != nil {
+		return nil, err
+	}
+
 	kubeClient := new(KubeClient)
 	kubeClient.config = &config
 	kubeClient.clientset = clientset
 	kubeClient.userNamespace = userNamespace
+	kubeClient.metrics = metrics
 
 	// Get environments from config map
 	envMap, err := kubeClient.getEnvironmentsFromConfigMap()
@@ -184,10 +194,27 @@ func (kc *KubeClient) getDeploymentEnvStats(envNS string, rc types.UID) (*app.En
 		return nil, err
 	}
 
+	cpuUsage, err := kc.metrics.getCPUMetrics(pods, envNS)
+	if err != nil {
+		return nil, err
+	}
+	cpuUsageInt32 := int(cpuUsage * 1000) // FIXME convert to millicores until struct changed to float
+	memoryUsage, err := kc.metrics.getMemoryMetrics(pods, envNS)
+	if err != nil {
+		return nil, err
+	}
+	memoryUsageInt32 := int(memoryUsage)
+
+	unitsBytes := "bytes"
 	result := &app.EnvStats{
-		Cpucores: &app.EnvStatCores{},  // TODO
-		Memory:   &app.EnvStatMemory{}, // TODO
-		Pods:     podStats,
+		Cpucores: &app.EnvStatCores{
+			Used: &cpuUsageInt32,
+		},
+		Memory: &app.EnvStatMemory{
+			Used:  &memoryUsageInt32,
+			Units: &unitsBytes,
+		},
+		Pods: podStats,
 	}
 	return result, nil
 }

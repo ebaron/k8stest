@@ -6,12 +6,12 @@ import (
 	"os"
 )
 
-// Example usage: go run main.go kubeclient.go "$(oc whoami -t)" myuser myspace
+// Example usage: k8stest "$(oc whoami -t)" myuser myspace
 func main() {
 	url := "https://openshift.io/_p/oso"
 
 	if len(os.Args) < 4 {
-		log.Fatalln("usage: go run main.go kubeclient.go kube_token user_namespace space_name")
+		log.Fatalln("usage: k8stest kube_token user_namespace space_name")
 	}
 
 	token := os.Args[1]
@@ -31,6 +31,8 @@ func main() {
 		fmt.Println("Application:", *appn.Name)
 		for _, env := range appn.Pipeline {
 			fmt.Println("\tEnvironment:", *env.Name)
+			fmt.Println("\t\tCPU Usage:", *env.Stats.Cpucores.Used)
+			fmt.Println("\t\tMemory Usage:", *env.Stats.Memory.Used, *env.Stats.Memory.Units)
 			fmt.Println("\t\tPodsStarting:", *env.Stats.Pods.Starting)
 			fmt.Println("\t\tPodsRunning:", *env.Stats.Pods.Running)
 			fmt.Println("\t\tPodsStopping:", *env.Stats.Pods.Stopping)
@@ -45,7 +47,7 @@ func main() {
 		fmt.Println("Environment:", *env.Name)
 		fmt.Println("\tCPU Used:", *env.Quota.Cpucores.Used)
 		fmt.Println("\tCPU Limit:", *env.Quota.Cpucores.Quota)
-		fmt.Println("\tMemory Used:", *env.Quota.Memory.Used)
+		fmt.Println("\tMemory Used:", *env.Quota.Memory.Used, *env.Quota.Memory.Units)
 		fmt.Println("\tMemory Limit:", *env.Quota.Memory.Quota)
 	}
 }
