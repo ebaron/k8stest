@@ -42,9 +42,13 @@ func NewKubeClient(clusterURL string, kubeToken string, userNamespace string) (*
 		return nil, err
 	}
 
-	// TODO generate by replacing "api" with "metrics" in user's cluster URL
-	// Don't think we can use OSO proxy anymore
-	metricsURL := "https://metrics.starter-us-east-2.openshift.com"
+	// In the absence of a better way to get the user's metrics URL,
+	// substitute "api" with "metrics" in user's cluster URL
+	metricsURL, err := getMetricsURLFromAPIURL(clusterURL)
+	if err != nil {
+		return nil, err
+	}
+	// Create MetricsClient for talking with Hawkular API
 	metrics, err := newMetricsClient(metricsURL, kubeToken)
 	if err != nil {
 		return nil, err
@@ -182,6 +186,27 @@ func (kc *KubeClient) GetEnvironment(envName string) (*app.SimpleEnvironment, er
 	return env, nil
 }
 
+func getMetricsURLFromAPIURL(apiURLStr string) (string, error) {
+	// Parse as URL to give us easy access to the hostname
+	apiURL, err := url.Parse(apiURLStr)
+	if err != nil {
+		return "", err
+	}
+
+	// Get the hostname (without port) and replace api prefix with metrics
+	apiHostname := apiURL.Hostname()
+	if !strings.HasPrefix(apiHostname, "api") {
+		return "", errors.New("Cluster URL does not begin with \"api\": " + apiHostname)
+	}
+	metricsHostname := strings.Replace(apiHostname, "api", "metrics", 1)
+	// Construct URL using just scheme from API URL and metrics hostname
+	metricsURL := url.URL{
+		Scheme: apiURL.Scheme,
+		Host:   metricsHostname,
+	}
+	return metricsURL.String(), nil
+}
+
 func (kc *KubeClient) getDeploymentEnvStats(envNS string, rc types.UID) (*app.EnvStats, error) {
 	// Get all pods created by this deployment
 	pods, err := kc.getPods(envNS, rc)
@@ -194,12 +219,12 @@ func (kc *KubeClient) getDeploymentEnvStats(envNS string, rc types.UID) (*app.En
 		return nil, err
 	}
 
-	cpuUsage, err := kc.metrics.getCPUMetrics(pods, envNS)
+	cpuUsage, _, err := kc.metrics.getCPUMetrics(pods, envNS)
 	if err != nil {
 		return nil, err
 	}
-	cpuUsageInt32 := int(cpuUsage * 1000) // FIXME convert to millicores until struct changed to float
-	memoryUsage, err := kc.metrics.getMemoryMetrics(pods, envNS)
+	cpuUsageInt32 := int(cpuUsage)
+	memoryUsage, _, err := kc.metrics.getMemoryMetrics(pods, envNS)
 	if err != nil {
 		return nil, err
 	}

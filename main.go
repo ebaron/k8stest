@@ -6,19 +6,18 @@ import (
 	"os"
 )
 
-// Example usage: k8stest "$(oc whoami -t)" myuser myspace
+// Example usage: k8stest "$(oc whoami -t)" myuser myspace https://api.starter-us-east-2.openshift.com:443
 func main() {
-	url := "https://openshift.io/_p/oso"
-
-	if len(os.Args) < 4 {
-		log.Fatalln("usage: k8stest kube_token user_namespace space_name")
+	if len(os.Args) < 5 {
+		log.Fatalln("usage: k8stest kube_token user_namespace space_name cluster_api_server")
 	}
 
 	token := os.Args[1]
 	userNamespace := os.Args[2]
 	spaceName := os.Args[3]
+	apiServer := os.Args[4]
 
-	kc, err := NewKubeClient(url, token, userNamespace)
+	kc, err := NewKubeClient(apiServer, token, userNamespace)
 	if err != nil {
 		log.Fatalln(err)
 	}
